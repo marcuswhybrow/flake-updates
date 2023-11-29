@@ -1,11 +1,7 @@
 {
   description = "Bash Script";
 
-  inputs = {
-    nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
-    # nixpkgs.url = "github:NixOS/nixpkgs/nixos-23.05";
-    #'nixpkgs.url = "github:NixOS/nixpkgs/master";
-  };
+  inputs.nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
 
   outputs = { self, nixpkgs }: let 
     pkgs = import nixpkgs { 
@@ -16,7 +12,7 @@
     curl = "${pkgs.curl}/bin/curl";
   in {
     packages.x86_64-linux = {
-      nixpkgs-diff = pkgs.writeShellScriptBin "nixpkgs-diff" ''
+      nixpkgs-updates = pkgs.writeShellScriptBin "nixpkgs-updates" ''
         flake="''${1:-.}"
         nixpkgs="''${2:-nixpkgs}"
         poll_freq_sec="''${3:-3600}"
@@ -133,7 +129,7 @@
         echo " $num $unit"
 
       '';
-      default = self.packages.x86_64-linux.nixpkgs-diff;
+      default = self.packages.x86_64-linux.nixpkgs-updates;
     };
 
     devShells.x86_64-linux.default = pkgs.mkShell {

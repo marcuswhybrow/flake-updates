@@ -3,7 +3,7 @@ Works great for a custom [Waybar](https://github.com/Alexays/Waybar) module:
 ```
 {
     "custom/updates": {
-        "exec": "nixpkgs-diff /path/to/nix/flake",
+        "exec": "nixpkgs-updates /path/to/nix/flake",
         "interval": 1
     }
 }
