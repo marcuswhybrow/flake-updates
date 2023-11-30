@@ -14,35 +14,21 @@
     packages.x86_64-linux = {
       nixpkgs-updates = pkgs.writeShellScriptBin "nixpkgs-updates" ''
         flake="''${1:-.}"
+        lockfile="$flake/flake.lock"
         nixpkgs="''${2:-nixpkgs}"
-        poll_freq_sec="''${3:-3600}"
+
+        if [ ! -f $lockfile ]; then
+          echo "no flake"
+          exit 0
+        fi
 
         cd $flake
 
         xdg_state=''${XDG_STATE_HOME:-"$HOME/.local/state"}
-        state_dir="$xdg_state/nixpkgs-diff"
-        mkdir -p $state_dir
+        state_dir="$xdg_state/nixpkgs-updates"
+        mkdir --parents $state_dir
 
-        cur_commit="$state_dir/current-commit.json"
-        latest_commit="$state_dir/latest-commit.json"
-
-        is_outdated() {
-          file=$1
-
-          if [ ! -f $file ]; then
-            return 0
-          fi
-
-          last_modified_sec=$(date --utc --reference $file +%s)
-          now_sec=$(date +%s)
-          diff=$((last_modified_sec-now_sec))
-
-          if (( diff > poll_freq_sec )); then
-            return 0
-          else
-            return 1
-          fi
-        }
+        find $state_dir -type f -mmin +60 -delete
 
         github_url() {
           echo "https://api.github.com/repos/NixOS/nixpkgs/$1"
@@ -65,11 +51,15 @@
           cat $file | ${jq} --raw-output "$format"
         }
 
-        lockfile="$flake/flake.lock"
-        cur_branch=$(json $lockfile ".nodes.$nixpkgs.original.ref")
         cur_commit_hash=$(json $lockfile ".nodes.$nixpkgs.locked.rev")
+        github_owner=$(json $lockfile ".nodes.$nixpkgs.original.owner")
+        github_repo=$(json $lockfile ".nodes.$nixpkgs.original.repo")
+        github_ref=$(json $lockfile ".nodes.$nixpkgs.original.ref")
 
-        if is_outdated $cur_commit; then
+        cur_commit="$state_dir/$github_owner-$github_repo-$cur_commit_hash.json"
+        latest_commit="$state_dir/$github_owner-$github_repo-$github_ref.json"
+
+        if [ ! -f $cur_commit ]; then
           url=$(github_url "commits/$cur_commit_hash")
           github_api $url > $cur_commit
         fi
@@ -77,8 +67,8 @@
         cur_commit_date=$(json $cur_commit ".commit.committer.date")
         cur_commit_url=$(json $cur_commit ".html_url")
 
-        if is_outdated $latest_commit; then 
-          url=$(github_url "commits/$cur_branch")
+        if [ ! -f $latest_commit ]; then 
+          url=$(github_url "commits/$github_ref")
           github_api $url > $latest_commit
         fi
 
