@@ -12,10 +12,10 @@
     curl = "${pkgs.curl}/bin/curl";
   in {
     packages.x86_64-linux = {
-      nixpkgs-updates = pkgs.writeShellScriptBin "nixpkgs-updates" ''
+      flake-updates = pkgs.writeShellScriptBin "flake-updates" ''
         flake="''${1:-.}"
+        input="''${2:-nixpkgs}"
         lockfile="$flake/flake.lock"
-        nixpkgs="''${2:-nixpkgs}"
 
         if [ ! -f $lockfile ]; then
           echo "no flake"
@@ -25,14 +25,10 @@
         cd $flake
 
         xdg_state=''${XDG_STATE_HOME:-"$HOME/.local/state"}
-        state_dir="$xdg_state/nixpkgs-updates"
+        state_dir="$xdg_state/flake-updates"
         mkdir --parents $state_dir
 
         find $state_dir -type f -mmin +60 -delete
-
-        github_url() {
-          echo "https://api.github.com/repos/NixOS/nixpkgs/$1"
-        }
 
         github_api() {
           url="$1"
@@ -48,13 +44,37 @@
         json() {
           file="$1"
           format="$2"
-          cat $file | ${jq} --raw-output "$format"
+          result=$(cat $file | ${jq} -e --raw-output "$format") && echo "$result"
         }
 
-        cur_commit_hash=$(json $lockfile ".nodes.$nixpkgs.locked.rev")
-        github_owner=$(json $lockfile ".nodes.$nixpkgs.original.owner")
-        github_repo=$(json $lockfile ".nodes.$nixpkgs.original.repo")
-        github_ref=$(json $lockfile ".nodes.$nixpkgs.original.ref")
+        node=$(json $lockfile ".nodes.root.inputs.$input")
+
+        if [ "$node" == "" ]; then
+          echo "no input '$input'"
+          exit 1
+        fi
+
+
+        cur_commit_hash=$(json $lockfile ".nodes.$node.locked.rev")
+        cur_type=$(json $lockfile ".nodes.$node.original.type")
+
+
+        if [ "$cur_type" != "github" ]; then 
+          echo "$input is not 'github' type"
+          exit 1
+        fi
+
+        github_owner=$(json $lockfile ".nodes.$node.original.owner")
+        github_repo=$(json $lockfile ".nodes.$node.original.repo")
+        github_ref=$(json $lockfile ".nodes.$node.original.ref")
+
+        if [ "$github_ref" == "" ]; then
+          github_ref="HEAD"
+        fi
+
+        github_url() {
+          echo "https://api.github.com/repos/$github_owner/$github_repo/$1"
+        }
 
         cur_commit="$state_dir/$github_owner-$github_repo-$cur_commit_hash.json"
         latest_commit="$state_dir/$github_owner-$github_repo-$github_ref.json"
@@ -119,7 +139,7 @@
         echo " $num $unit"
 
       '';
-      default = self.packages.x86_64-linux.nixpkgs-updates;
+      default = self.packages.x86_64-linux.flake-updates;
     };
 
     devShells.x86_64-linux.default = pkgs.mkShell {
