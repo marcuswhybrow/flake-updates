@@ -1,9 +1,13 @@
+```
+nix run github:marcuswhybrow/flake-updates -- /path/to/flake-dir input-name
+```
+
 Works great for a custom [Waybar](https://github.com/Alexays/Waybar) module:
 
 ```
 {
     "custom/updates": {
-        "exec": "nixpkgs-updates /path/to/nix/flake",
+        "exec": "flake-updates /path/to/flake-dir input-name",
         "interval": 1
     }
 }
