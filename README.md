@@ -1,5 +1,5 @@
 ```
-nix run github:marcuswhybrow/flake-updates -- /path/to/flake-dir input-name
+nix run github:marcuswhybrow/flake-updates -- --flake /path/to/flake-dir
 ```
 
 Works great for a custom [Waybar](https://github.com/Alexays/Waybar) module:
@@ -7,10 +7,13 @@ Works great for a custom [Waybar](https://github.com/Alexays/Waybar) module:
 ```
 {
     "custom/updates": {
-        "exec": "flake-updates /path/to/flake-dir input-name",
+        "exec": "flake-updates --flake /path/to/flake-dir --output '%s updates'",
         "interval": 1
     }
 }
 ```
 
-- Makes a maximum of 2 calls per hour to the GitHub API.
+- Makes 1 GitHub API call per input by default.
+- `flake-updates --help` for more options.
+- Top tip, `flake-updates --poll 0` busts the cache to always calls GitHub.
+
