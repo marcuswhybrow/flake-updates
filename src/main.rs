@@ -1,4 +1,4 @@
-use std::{error::Error, fmt::Debug, fs, io::Write, path::PathBuf, process::ExitStatus};
+use std::{error::Error, fmt::Debug, fs, path::PathBuf};
 
 use anyhow::{bail, Context, Result};
 use clap::Parser;
@@ -33,6 +33,8 @@ async fn main() -> Result<()> {
     };
 
     let cache_dir = xdg_dir.get_state_file("cache");
+    fs::create_dir_all(cache_dir.clone())?;
+
     let cache_dir_str = cache_dir
         .to_str()
         .context("Failed to parse XDG state directory.")?;
