@@ -8,7 +8,7 @@ Usage: flake-updates [OPTIONS]
 
 Options:
   -f, --flake <FLAKE>    Path to a nix flake.lock file, or it's parent directory [default: .]
-  -p, --poll <POLL>      How often to check GitHub for updates [default: 60]
+  -p, --poll <POLL>      How often to check GitHub for updates in minutes [default: 60]
   -o, --output <OUTPUT>  Output string format ("%s is replaced with the number of updates")
   -h, --help             Print help
   -V, --version          Print version
