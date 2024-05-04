@@ -13,7 +13,7 @@ struct Args {
     #[arg(short, long, default_value_t = String::from("."))]
     flake: String,
 
-    /// How often to check GitHub for updates
+    /// How often to check GitHub for updates in minutes
     #[arg(short, long, default_value_t = 60)]
     poll: u32,
 
