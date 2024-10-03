@@ -20,6 +20,33 @@ struct Args {
     /// Output string format ("%s is replaced with the number of updates")
     #[arg(short, long)]
     output: Option<String>,
+
+    /// Returns immediately with whatever value is cached from the last 
+    /// invocation. If the cache is older than the --poll value, or doesn't  
+    /// exist, then a background process is started to update the cache for 
+    /// the next invocation to find
+    #[arg(short, long, default_value_t = false)]
+    defer: bool,
+}
+
+fn bust_cache_if_stale(cache_dir: &PathBuf, poll: u32) -> Result<()> {
+    let cache_dir_str = cache_dir
+        .to_str()
+        .context("Failed to parse XDG state directory.")?;
+
+    let mins = &format!("+{}", poll);
+    let output = std::process::Command::new("find")
+        .args([cache_dir_str, "-type", "f", "-mmin", mins, "-delete"])
+        .output()
+        .context("Failed to obtain output of process that would have cleaned the cache.")?;
+
+    if !output.status.success() {
+        bail!(
+            "Failed to clean XDG state directory of files older than 60 minutes: {:?}",
+            String::from_utf8(output.stderr)
+        );
+    }
+    Ok(())
 }
 
 #[tokio::main]
@@ -35,23 +62,11 @@ async fn main() -> Result<()> {
     let cache_dir = xdg_dir.get_state_file("cache");
     fs::create_dir_all(cache_dir.clone())?;
 
-    let cache_dir_str = cache_dir
-        .to_str()
-        .context("Failed to parse XDG state directory.")?;
-    let mins = &format!("+{}", args.poll);
-    let output = std::process::Command::new("find")
-        .args([cache_dir_str, "-type", "f", "-mmin", mins, "-delete"])
-        .output()
-        .context("Failed to obtain output of process that would have cleaned the cache.")?;
-
-    if !output.status.success() {
-        bail!(
-            "Failed to clean XDG state directory of files older than 60 minutes: {:?}",
-            String::from_utf8(output.stderr)
-        );
+    if !args.defer {
+        bust_cache_if_stale(&cache_dir, args.poll) .context("Failed to bust cache")?;
     }
 
-    let mut lock_file_path = PathBuf::from(args.flake);
+    let mut lock_file_path = PathBuf::from(&args.flake);
     if lock_file_path.is_dir() {
         lock_file_path = lock_file_path.join("flake.lock");
     }
@@ -100,7 +115,7 @@ async fn main() -> Result<()> {
                         serde_json::from_str(&cache_str).context("Failed to deserialize cache.")?;
                     cache
                         .as_i64()
-                        .context("Faield to deserialize commit data.")?
+                        .context("Failed to deserialize commit data.")?
                 } else {
                     let octocrab = octocrab::instance();
                     let commits = octocrab.commits(&input.owner, &input.repo);
@@ -146,8 +161,10 @@ async fn main() -> Result<()> {
     let total: i64 = updates.iter().map(|update| update.behind_by).sum();
     if let Some(output) = args.output {
         if total > 0 {
-            let formatted_output = output.replace("%s", &total.to_string());
-            println!("{formatted_output}");
+            if output != "" {
+                let formatted_output = output.replace("%s", &total.to_string());
+                println!("{formatted_output}");
+            }
         }
     } else {
         if total > 0 {
@@ -158,6 +175,16 @@ async fn main() -> Result<()> {
         } else {
             println!("Everything is up to date.");
         }
+    }
+
+    if args.defer {
+        let _ = std::process::Command::new("/proc/self/exe")
+            .args([
+                "--poll", &args.poll.to_string(),
+                "--flake", &args.flake,
+                "--output", "", // prevents writing to stdout
+            ])
+            .spawn();
     }
 
     return Ok(());
@@ -193,6 +220,7 @@ impl GitHubInput {
         let owner = original["owner"]
             .as_str()
             .context("Failed to deserialize GitHub repository owner.")?;
+
 
         let repo = original["repo"]
             .as_str()
