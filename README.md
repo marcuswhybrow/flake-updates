@@ -8,9 +8,9 @@ Usage: flake-updates [OPTIONS]
 
 Options:
   -f, --flake <FLAKE>    Path to a nix flake.lock file, or it's parent directory [default: .]
-  -p, --poll <POLL>      How often to check GitHub for updates in minutes [default: 60]
+  -t, --ttl <TTL>        The "Time To Live" of cached GitHub API requests before being considered stale. Caching GitHub API requests avoids rate limiting denials at the cost of data freshness [default: 60] [aliases: poll] [short aliases: p]
   -o, --output <OUTPUT>  Output string format ("%s is replaced with the number of updates")
-  -d, --defer            Returns immediately with whatever value is cached from the last invocation. If the cache is older than the --poll value, or doesn't exist, then a background process is started to update the cache for the next invocation to find
+  -d, --defer            Immediately return any currently cached data regardless of --ttl, and asynchronously consider regenerating the cache as a background task
   -h, --help             Print help
   -V, --version          Print version
 ```
@@ -28,5 +28,5 @@ Works great for a custom [Waybar](https://github.com/Alexays/Waybar) module:
 
 - Makes 1 GitHub API call per input by default.
 - `flake-updates --help` for more options.
-- Top tip, `flake-updates --poll 0` busts the cache and always calls GitHub.
+- Top tip, `flake-updates --ttl 0` busts the cache and always calls GitHub.
 

@@ -13,18 +13,18 @@ struct Args {
     #[arg(short, long, default_value_t = String::from("."))]
     flake: String,
 
-    /// How often to check GitHub for updates in minutes
-    #[arg(short, long, default_value_t = 60)]
-    poll: u32,
+    /// The "Time To Live" of cached GitHub API requests before being considered
+    /// stale. Caching GitHub API requests avoids rate limiting denials at the 
+    /// cost of data freshness.
+    #[arg(short, long, default_value_t = 60, visible_alias = "poll", visible_short_alias = 'p')]
+    ttl: u32,
 
     /// Output string format ("%s is replaced with the number of updates")
     #[arg(short, long)]
     output: Option<String>,
 
-    /// Returns immediately with whatever value is cached from the last 
-    /// invocation. If the cache is older than the --poll value, or doesn't  
-    /// exist, then a background process is started to update the cache for 
-    /// the next invocation to find
+    /// Immediately return any currently cached data regardless of --ttl, and 
+    /// asynchronously consider regenerating the cache as a background task.
     #[arg(short, long, default_value_t = false)]
     defer: bool,
 }
@@ -63,7 +63,7 @@ async fn main() -> Result<()> {
     fs::create_dir_all(cache_dir.clone())?;
 
     if !args.defer {
-        bust_cache_if_stale(&cache_dir, args.poll) .context("Failed to bust cache")?;
+        bust_cache_if_stale(&cache_dir, args.ttl) .context("Failed to bust cache")?;
     }
 
     let mut lock_file_path = PathBuf::from(&args.flake);
@@ -180,7 +180,7 @@ async fn main() -> Result<()> {
     if args.defer {
         let _ = std::process::Command::new("/proc/self/exe")
             .args([
-                "--poll", &args.poll.to_string(),
+                "--poll", &args.ttl.to_string(),
                 "--flake", &args.flake,
                 "--output", "", // prevents writing to stdout
             ])
